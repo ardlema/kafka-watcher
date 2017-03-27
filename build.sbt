@@ -22,7 +22,9 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http-experimental" % "2.4.11.1",
   "com.typesafe.akka" %% "akka-actor" % "2.4.17",
   "com.typesafe.akka" %% "akka-stream" % "2.4.17",
-  "com.typesafe.play" %% "play-json" % "2.3.4",
+  "org.json4s" %% "json4s-native" % "3.5.0",
+  "org.json4s" %% "json4s-jackson" % "3.5.0",
+  "org.apache.kafka" % "kafka-clients" % "0.10.1.0",
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
 )

@@ -1,9 +1,10 @@
 package org.ardlema.kafka.status
 
-import java.io.File
+import java.util.Properties
 
-import akka.actor.{Actor, ActorRef}
-import play.api.libs.json.Json
+import akka.actor.{ Actor, ActorRef }
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.json4s.jackson.Serialization
 import scala.concurrent.duration.FiniteDuration
 
 class KafkaStatusActor(router: ActorRef, delay: FiniteDuration, interval: FiniteDuration) extends Actor {
@@ -11,9 +12,20 @@ class KafkaStatusActor(router: ActorRef, delay: FiniteDuration, interval: Finite
   import scala.concurrent.ExecutionContext.Implicits.global
 
   context.system.scheduler.schedule(delay, interval) {
-    val json = Json.obj("stats" → getStats.map(el ⇒ el._1 → el._2))
-    router ! Json.prettyPrint(json)
+    implicit val formats = org.json4s.DefaultFormats
+    router ! Serialization.write(getKafkaStatus)
   }
+
+  val kakfaProperties = {
+    val props = new Properties()
+    props.put("bootstrap.servers", "127.0.0.1:9092")
+    props.put("group.id", "kafka-status-group")
+    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+    props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+    props
+  }
+
+  lazy val kafkaConsumer = new KafkaConsumer(kakfaProperties)
 
   override def receive: Actor.Receive = {
     case _ ⇒ // just ignore any messages
@@ -27,12 +39,12 @@ class KafkaStatusActor(router: ActorRef, delay: FiniteDuration, interval: Finite
       "count.mem.maxMemory" → Runtime.getRuntime.maxMemory(),
       "count.mem.totalMemory" → Runtime.getRuntime.totalMemory()
     )
+    baseStats
+  }
 
-    val roots = File.listRoots()
-    val totalSpaceMap = roots.map(root ⇒ s"count.fs.total.${root.getAbsolutePath}" → root.getTotalSpace) toMap
-    val freeSpaceMap = roots.map(root ⇒ s"count.fs.free.${root.getAbsolutePath}" → root.getFreeSpace) toMap
-    val usuableSpaceMap = roots.map(root ⇒ s"count.fs.usuable.${root.getAbsolutePath}" → root.getUsableSpace) toMap
-
-    baseStats ++ totalSpaceMap ++ freeSpaceMap ++ usuableSpaceMap
+  def getKafkaStatus = {
+    import scala.collection.JavaConversions._
+    kafkaConsumer.listTopics().map(e ⇒ e._1 → e._2.size)
+    //kafkaConsumer.listTopics.mapValues(_.toSet).map(e => ("topic" -> e._1))
   }
 }
